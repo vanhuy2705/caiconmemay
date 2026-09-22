@@ -11,7 +11,7 @@ public partial class FrmRegister : Form
     public FrmRegister()
     {
         InitializeComponent();
-        AppTheme.Upgrade(this);
+        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         AppTheme.StylePrimary(btnRegister);
         AppTheme.StyleSecondary(btnBack);
         btnRegister.Click += (_, _) => Register();

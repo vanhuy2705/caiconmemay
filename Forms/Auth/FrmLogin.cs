@@ -11,7 +11,7 @@ public partial class FrmLogin : Form
 
     public FrmLogin()
     {
-        InitializeComponent();
+        InitializeComponent();ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         AppTheme.Smooth(this);
         Opacity = 0;
         Shown += (_,__) =>

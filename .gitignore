@@ -1,0 +1,27 @@
+# Build
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.dbmdl
+*.jfm
+*.vs/
+.vs/
+
+# NuGet
+*.nupkg
+packages/
+!**/packages/build/
+!**/packages/repositories.config
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*~

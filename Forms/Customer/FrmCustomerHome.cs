@@ -9,7 +9,7 @@ public partial class FrmCustomerHome:Form
 {
     public FrmCustomerHome()
     {
-        InitializeComponent();AppTheme.Upgrade(this);
+        InitializeComponent();AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         lblWelcome.Text=$"Xin chào, {SessionContext.FullName}!";
         hero.Cursor=Cursors.Hand;
         hero.Click+=(_,__)=>OpenBooking();

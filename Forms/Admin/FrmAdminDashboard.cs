@@ -13,7 +13,7 @@ public partial class FrmAdminDashboard : Form
 
     public FrmAdminDashboard()
     {
-        InitializeComponent();AppTheme.Upgrade(this);
+        InitializeComponent();AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         lblGreeting.Text = $"☀  Xin chào, {SessionContext.FullName}!";
         AppTheme.ApplyDecorativeIcon(lblGreeting);
         lblDate.Text = DateTime.Today.ToString("dddd, dd/MM/yyyy");

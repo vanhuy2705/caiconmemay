@@ -14,7 +14,7 @@ public partial class FrmEmployeeDashboard : Form
 
     public FrmEmployeeDashboard()
     {
-        InitializeComponent();AppTheme.Upgrade(this);
+        InitializeComponent();AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         lblHello.Text=$"☀  Xin chào, {SessionContext.FullName}!";
         AppTheme.ApplyDecorativeIcon(lblHello);
         foreach (var c in new[] { cBookings, cRevenue, cCustomers, cPending }) flpCards.Controls.Add(c);

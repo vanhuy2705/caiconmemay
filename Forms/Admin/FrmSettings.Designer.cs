@@ -4,38 +4,90 @@ partial class FrmSettings
 {
     private System.ComponentModel.IContainer? components=null;private TextBox txtCompany=null!,txtBankName=null!,txtBankBin=null!,txtAccount=null!,txtAccountName=null!,txtPrefix=null!,txtOpen=null!,txtClose=null!;private Button btnSave=null!;
     protected override void Dispose(bool disposing){if(disposing&&components!=null)components.Dispose();base.Dispose(disposing);}
-    private void InitializeComponent(){txtCompany=new TextBox();txtBankName=new TextBox();txtBankBin=new TextBox();txtAccount=new TextBox();txtAccountName=new TextBox();txtPrefix=new TextBox();txtOpen=new TextBox();txtClose=new TextBox();btnSave=new Button();SuspendLayout();
-        BackColor=Color.FromArgb(243,249,248);AutoScroll=true;
+    private void InitializeComponent(){
+        txtCompany=new TextBox();txtBankName=new TextBox();txtBankBin=new TextBox();txtAccount=new TextBox();txtAccountName=new TextBox();txtPrefix=new TextBox();txtOpen=new TextBox();txtClose=new TextBox();btnSave=new Button();
+        SuspendLayout();
+        BackColor=Color.FromArgb(243,249,248);AutoScroll=true;Padding=new Padding(12);AutoScaleMode=AutoScaleMode.Dpi;
         var header=new Panel{Dock=DockStyle.Top,Height=64,BackColor=Color.Transparent};
-        var pageTitle=new Label{Text="Cấu hình hệ thống",AutoSize=true,Font=new Font("Segoe UI Semibold",15.5F,FontStyle.Bold),ForeColor=Color.FromArgb(18,53,78),Location=new Point(6,6)};
-        var pageSub=new Label{Text="Thông tin đơn vị, tài khoản nhận tiền VietQR và giờ hoạt động",AutoSize=true,Font=new Font("Segoe UI",8.3F),ForeColor=Color.FromArgb(103,126,145),Location=new Point(8,34)};
+        var pageTitle=new Label{Text="Cấu hình hệ thống",AutoSize=true,Font=new Font("Segoe UI Semibold",15F,FontStyle.Bold),ForeColor=Color.FromArgb(18,53,78),Location=new Point(6,6)};
+        var pageSub=new Label{Text="Thông tin đơn vị, tài khoản nhận tiền VietQR và giờ hoạt động",AutoSize=true,Font=new Font("Segoe UI",8.2F),ForeColor=Color.FromArgb(103,126,145),Location=new Point(8,34)};
         header.Controls.AddRange(new Control[]{pageTitle,pageSub});
-        var card=new Panel{Dock=DockStyle.Top,Height=690,BackColor=Color.White,Padding=new Padding(28)};
-        var badge=new Label{Text="⚙",AutoSize=false,Size=new Size(40,40),Font=new Font("Segoe UI Symbol",13F),ForeColor=Color.White,BackColor=Color.FromArgb(19,170,157),TextAlign=ContentAlignment.MiddleCenter,Location=new Point(28,22)};
+
+        var card=new QuanLyThueSanTheThao.Forms.Common.RoundedPanel{Dock=DockStyle.Top,Height=720,BackColor=Color.White,Radius=16,BorderColor=Color.FromArgb(218,232,240),Padding=new Padding(24),Margin=new Padding(0,8,0,12)};
+        var badge=new Label{Text="⚙",AutoSize=false,Size=new Size(40,40),Font=new Font("Segoe UI Symbol",13F),ForeColor=Color.White,BackColor=Color.FromArgb(19,170,157),TextAlign=ContentAlignment.MiddleCenter,Location=new Point(24,20)};
         badge.Region=new Region(QuanLyThueSanTheThao.Forms.Common.RoundedPanel.CreateRoundPath(new Rectangle(0,0,39,39),12));
-        var title=new Label{Text="Thiết lập chung & thanh toán",AutoSize=true,Font=new Font("Segoe UI Semibold",13.5F,FontStyle.Bold),ForeColor=Color.FromArgb(18,53,78),Location=new Point(80,26)};
-        var sub=new Label{Text="Các thiết lập áp dụng cho toàn hệ thống và mã QR thanh toán",AutoSize=true,Font=new Font("Segoe UI",8F),ForeColor=Color.FromArgb(103,126,145),Location=new Point(81,52)};
-        var sep=new Panel{BackColor=Color.FromArgb(238,244,248),Location=new Point(28,84),Size=new Size(644,1)};
+        var title=new Label{Text="Thiết lập chung & thanh toán",AutoSize=true,Font=new Font("Segoe UI Semibold",13F,FontStyle.Bold),ForeColor=Color.FromArgb(18,53,78),Location=new Point(76,22)};
+        var sub=new Label{Text="Các thiết lập áp dụng cho toàn hệ thống và mã QR",AutoSize=true,Font=new Font("Segoe UI",8F),ForeColor=Color.FromArgb(103,126,145),Location=new Point(77,48)};
+        var sep=new Panel{BackColor=Color.FromArgb(238,244,248),Location=new Point(24,80),Height=1,Width=700,Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right};
         card.Controls.AddRange(new Control[]{badge,title,sub,sep});
-        int y=104;void Section(string t){var mark=new Panel{BackColor=Color.FromArgb(19,198,119),Location=new Point(28,y+3),Size=new Size(4,15)};var l=new Label{Text=t,AutoSize=true,Font=new Font("Segoe UI Semibold",10.3F,FontStyle.Bold),ForeColor=Color.FromArgb(18,53,78),Location=new Point(40,y)};card.Controls.AddRange(new Control[]{mark,l});y+=34;}
-        void Field(string l,Control c,int x,int w){var lb=new Label{Text=l,AutoSize=true,Font=new Font("Segoe UI Semibold",8.6F),ForeColor=Color.FromArgb(52,84,105),Location=new Point(x,y)};c.Location=new Point(x,y+21);c.Width=w;c.Height=38;card.Controls.AddRange(new Control[]{lb,c});y+=60;}
-        Section("Thông tin chung");
-        Field("Tên hệ thống / công ty",txtCompany,28,300);
-        y+=6;Section("Thanh toán VietQR — tiền về tài khoản của bạn");
-        Field("Tên ngân hàng",txtBankName,28,300);Field("Bank BIN (VietQR)",txtBankBin,28,300);Field("Số tài khoản",txtAccount,28,300);
-        int yMark=y;Field("Chủ tài khoản",txtAccountName,372,300);Field("Tiền tố nội dung CK",txtPrefix,372,300);
-        var hint2=new Label{Text="VD: THANHTOAN DS000123 — tiền tố đứng trước\r\nmã đơn khi khách quét QR.",AutoSize=false,Size=new Size(284,40),Font=new Font("Segoe UI",7.8F),ForeColor=Color.FromArgb(140,155,168),Location=new Point(372,yMark+122)};
-        card.Controls.Add(hint2);
-        y+=6;Section("Giờ hoạt động");
-        Field("Giờ mở cửa (HH:mm)",txtOpen,28,150);int ySaved=y;Field("Giờ đóng cửa (HH:mm)",txtClose,200,150);
-        y+=8;
-        var banner=new Panel{Location=new Point(28,y),Size=new Size(644,56),BackColor=Color.FromArgb(236,249,243)};
-        banner.Region=new Region(QuanLyThueSanTheThao.Forms.Common.RoundedPanel.CreateRoundPath(new Rectangle(0,0,643,55),10));
-        var note=new Label{Text="ⓘ  Mã QR tạo động theo số tiền còn phải trả của từng đơn. Giao dịch chuyển khoản ở trạng thái chờ\r\n     cho đến khi nhân viên xác nhận tiền về.",AutoSize=false,Size=new Size(600,44),Font=new Font("Segoe UI",8F),ForeColor=Color.FromArgb(16,120,84),Location=new Point(16,7)};
-        banner.Controls.Add(note);card.Controls.Add(banner);
-        y+=70;
-        btnSave.Text="✓  Lưu cấu hình";btnSave.Location=new Point(28,y);btnSave.Size=new Size(176,44);
-        var hint=new Label{Text="Áp dụng cho QR thanh toán và kiểm tra giờ đặt sân.",AutoSize=true,Font=new Font("Segoe UI",8F),ForeColor=Color.FromArgb(140,155,168),Location=new Point(216,y+13)};
-        card.Controls.AddRange(new Control[]{btnSave,hint});
-        Controls.Add(card);Controls.Add(header);ResumeLayout(false);}
+
+        // Dùng TableLayout 2 cột cho responsive
+        var table=new TableLayoutPanel{Location=new Point(24,100),Size=new Size(700,540),Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right,ColumnCount=2,RowCount=6,BackColor=Color.Transparent};
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50F));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50F));
+        for(int i=0;i<6;i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute,88F));
+        table.RowStyles.Add(new RowStyle(SizeType.Absolute,80F));
+
+        Control MakeField(string lbl, TextBox tb){
+            var p=new Panel{Dock=DockStyle.Fill,Padding=new Padding(0,0,8,0),BackColor=Color.Transparent};
+            var l=new Label{Text=lbl,AutoSize=true,Font=new Font("Segoe UI Semibold",8.5F),ForeColor=Color.FromArgb(52,84,105),Location=new Point(2,2)};
+            tb.Location=new Point(2,22);tb.Height=36;tb.Dock=DockStyle.Bottom;tb.Anchor=AnchorStyles.Left|AnchorStyles.Right|AnchorStyles.Bottom;
+            p.Controls.AddRange(new Control[]{l,tb});
+            return p;
+        }
+
+        table.Controls.Add(MakeField("Tên hệ thống / công ty",txtCompany),0,0);
+        table.Controls.Add(MakeField("Tên ngân hàng",txtBankName),0,1);
+        table.Controls.Add(MakeField("Bank BIN (VietQR)",txtBankBin),0,2);
+        table.Controls.Add(MakeField("Số tài khoản",txtAccount),0,3);
+        table.Controls.Add(MakeField("Chủ tài khoản",txtAccountName),1,0);
+        table.Controls.Add(MakeField("Tiền tố nội dung CK",txtPrefix),1,1);
+        table.Controls.Add(MakeField("Giờ mở cửa (HH:mm)",txtOpen),0,4);
+        table.Controls.Add(MakeField("Giờ đóng cửa (HH:mm)",txtClose),1,4);
+
+        var banner=new Panel{Location=new Point(24,600),Size=new Size(700,56),BackColor=Color.FromArgb(236,249,243),Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right};
+        banner.Region=new Region(QuanLyThueSanTheThao.Forms.Common.RoundedPanel.CreateRoundPath(new Rectangle(0,0,699,55),10));
+        var note=new Label{Text="ⓘ  Mã QR tạo động theo số tiền còn phải trả. Giao dịch CK ở trạng thái chờ cho đến khi nhân viên xác nhận.",AutoSize=false,Size=new Size(660,44),Font=new Font("Segoe UI",8F),ForeColor=Color.FromArgb(16,120,84),Location=new Point(12,6)};
+        banner.Controls.Add(note);
+
+        btnSave.Text="✓  Lưu cấu hình";btnSave.Location=new Point(24,670);btnSave.Size=new Size(160,44);
+
+        card.Controls.AddRange(new Control[]{table,banner,btnSave});
+        card.Resize+=(s,e)=>{
+            sep.Width=card.Width-48;
+            table.Width=card.Width-48;
+            banner.Width=card.Width-48;
+            note.Width=banner.Width-24;
+            bool narrow=card.Width<700;
+            if(narrow && table.ColumnCount==2){
+                table.ColumnCount=1;table.RowCount=9;
+                table.ColumnStyles.Clear();table.RowStyles.Clear();
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100F));
+                for(int i=0;i<9;i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute,88F));
+                // Reorder controls to single column
+                var controls=table.Controls.Cast<Control>().ToList();
+                table.Controls.Clear();
+                int r=0;
+                foreach(var c in controls){table.Controls.Add(c,0,r++);}
+            }else if(!narrow && table.ColumnCount==1){
+                table.ColumnCount=2;table.RowCount=5;
+                table.ColumnStyles.Clear();table.RowStyles.Clear();
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50F));
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50F));
+                for(int i=0;i<6;i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute,88F));
+                // Rebuild 2 columns order original
+                table.Controls.Clear();
+                table.Controls.Add(MakeField("Tên hệ thống / công ty",txtCompany),0,0);
+                table.Controls.Add(MakeField("Tên ngân hàng",txtBankName),0,1);
+                table.Controls.Add(MakeField("Bank BIN (VietQR)",txtBankBin),0,2);
+                table.Controls.Add(MakeField("Số tài khoản",txtAccount),0,3);
+                table.Controls.Add(MakeField("Chủ tài khoản",txtAccountName),1,0);
+                table.Controls.Add(MakeField("Tiền tố nội dung CK",txtPrefix),1,1);
+                table.Controls.Add(MakeField("Giờ mở cửa (HH:mm)",txtOpen),0,4);
+                table.Controls.Add(MakeField("Giờ đóng cửa (HH:mm)",txtClose),1,4);
+            }
+        };
+
+        Controls.Add(card);Controls.Add(header);ResumeLayout(false);
+    }
 }

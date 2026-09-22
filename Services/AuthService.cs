@@ -40,7 +40,9 @@ ORDER BY CASE WHEN u.TenDangNhap=@TenDangNhap THEN 0 ELSE 1 END;";
 
         var salt = Convert.ToString(row["MuoiMatKhau"]) ?? "";
         var expected = Convert.ToString(row["MatKhauBam"]) ?? "";
-        if (!string.Equals(expected, PasswordHelper.Hash(salt, password), StringComparison.OrdinalIgnoreCase))
+
+        // V8: PBKDF2 verify + legacy fallback
+        if (!PasswordHelper.Verify(salt, password, expected))
             return new LoginResult { Success = false, Message = "Mật khẩu không đúng." };
 
         var role = Convert.ToString(row["TenVaiTro"]) ?? "";
@@ -53,8 +55,24 @@ ORDER BY CASE WHEN u.TenDangNhap=@TenDangNhap THEN 0 ELSE 1 END;";
             return new LoginResult { Success = false, Message = "Tài khoản Employee chưa được gắn với hồ sơ nhân viên đang hoạt động." };
 
         var userId = Convert.ToInt32(row["TaiKhoanID"]);
-        Db.Execute("UPDATE TaiKhoan SET DangNhapLanCuoi=SYSDATETIME() WHERE TaiKhoanID=@id",
-            new SqlParameter("@id", userId));
+
+        // Tự động migrate hash legacy sang PBKDF2 nếu cần
+        try
+        {
+            if (PasswordHelper.IsLegacyHash(salt, password, expected))
+            {
+                var newHash = PasswordHelper.Pbkdf2Hash(salt, password);
+                Db.Execute("UPDATE TaiKhoan SET MatKhauBam=@h, DangNhapLanCuoi=SYSDATETIME() WHERE TaiKhoanID=@id",
+                    new SqlParameter("@h", newHash),
+                    new SqlParameter("@id", userId));
+            }
+            else
+            {
+                Db.Execute("UPDATE TaiKhoan SET DangNhapLanCuoi=SYSDATETIME() WHERE TaiKhoanID=@id",
+                    new SqlParameter("@id", userId));
+            }
+        }
+        catch { /* không chặn đăng nhập nếu update log fail */ }
 
         return new LoginResult
         {
@@ -109,7 +127,7 @@ SELECT CASE
             using (var role = new SqlCommand("SELECT VaiTroID FROM VaiTro WHERE TenVaiTro=N'Customer'", cn, tx))
                 roleId = Convert.ToInt32(role.ExecuteScalar() ?? throw new InvalidOperationException("CSDL thiếu vai trò Customer."));
 
-            var salt = Guid.NewGuid().ToString("N")[..16].ToUpperInvariant();
+            var salt = PasswordHelper.CreateSalt();
             int userId;
             using (var account = new SqlCommand(@"
 INSERT INTO TaiKhoan(TenDangNhap,MatKhauBam,MuoiMatKhau,VaiTroID,DangHoatDong)
@@ -141,7 +159,6 @@ VALUES(N'TEMP-'+CONVERT(nvarchar(36),NEWID()),@uid,@name,@phone,NULLIF(@email,N'
                 code.ExecuteNonQuery();
             }
 
-            // Tự cấp một voucher còn hiệu lực để tài khoản mới có thể thử đầy đủ luồng đặt sân.
             using (var welcome = new SqlCommand(@"
 INSERT INTO PhieuGiamGiaKhachHang(PhieuGiamGiaID,KhachHangID)
 SELECT TOP 1 v.PhieuGiamGiaID,@customer

@@ -10,7 +10,7 @@ public partial class FrmCustomerVouchers : Form
     public FrmCustomerVouchers()
     {
         InitializeComponent();
-        AppTheme.Upgrade(this);
+        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         Shown += (_, __) => LoadData();
     }
 
