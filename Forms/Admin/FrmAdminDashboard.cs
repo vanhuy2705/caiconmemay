@@ -56,30 +56,26 @@ public partial class FrmAdminDashboard:Form
             cPending.SetValue(pending.ToString());
             cFields.SetValue($"{Math.Max(0,totalFields-busyFields-maintenance)}/{totalFields}");
 
-            // Timeline
-            var todayData=Db.Query(@"SELECT b.MaDatSan [Mã đơn],c.HoTen [Khách],f.TenSan [Sân],b.ThoiGianBatDau [Bắt đầu],b.ThoiGianKetThuc [Kết thúc],CASE b.TrangThai WHEN 'Pending' THEN N'Chờ' WHEN 'Confirmed' THEN N'Đã xác nhận' WHEN 'InUse' THEN N'Đang dùng' WHEN 'Completed' THEN N'Hoàn thành' WHEN 'Cancelled' THEN N'Đã hủy' ELSE b.TrangThai END [TT] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID WHERE CAST(b.ThoiGianBatDau AS DATE)=@d ORDER BY b.ThoiGianBatDau",new SqlParameter("@d",today));
-            timeline.Data=todayData;
+            // Timeline - map to BookingTimelineControl.Item
+            var todayData=Db.Query(@"SELECT f.TenSan [Sân],b.ThoiGianBatDau [Bắt đầu],b.ThoiGianKetThuc [Kết thúc],c.HoTen [Khách],CASE b.TrangThai WHEN 'Pending' THEN N'Chờ' WHEN 'Confirmed' THEN N'Đã xác nhận' WHEN 'InUse' THEN N'Đang dùng' WHEN 'Completed' THEN N'Hoàn thành' WHEN 'Cancelled' THEN N'Đã hủy' ELSE b.TrangThai END [TT] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID WHERE CAST(b.ThoiGianBatDau AS DATE)=@d ORDER BY b.ThoiGianBatDau",new SqlParameter("@d",today));
+            var items=new List<BookingTimelineControl.Item>();
+            foreach(System.Data.DataRow r in todayData.Rows){
+                var field=Convert.ToString(r["Sân"]) ?? "Sân";
+                var start= r["Bắt đầu"]==DBNull.Value ? today.AddHours(8) : Convert.ToDateTime(r["Bắt đầu"]);
+                var end= r["Kết thúc"]==DBNull.Value ? start.AddHours(1) : Convert.ToDateTime(r["Kết thúc"]);
+                var cust=Convert.ToString(r["Khách"]) ?? "";
+                var status=Convert.ToString(r["TT"]) ?? "";
+                items.Add(new BookingTimelineControl.Item(field,start,end,cust,status));
+            }
+            timeline.Items=items;
             timeline.Invalidate();
 
             gridRecent.DataSource=Db.Query(@"SELECT TOP 8 b.MaDatSan [Mã đơn],c.HoTen [Khách],f.TenSan [Sân],b.TongTien [Tổng],CASE b.TrangThaiThanhToan WHEN 'Unpaid' THEN N'Chưa TT' WHEN 'PartiallyPaid' THEN N'1 phần' WHEN 'Paid' THEN N'Đã TT' ELSE b.TrangThaiThanhToan END [Thanh toán],b.NgayTao [Ngày tạo] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID ORDER BY b.NgayTao DESC");
 
-            // Donut - status
-            var typeStats=Db.Query(@"SELECT ft.TenLoaiSan Label, COUNT(DISTINCT f.SanID) Total FROM LoaiSan ft LEFT JOIN SanTheThao f ON f.LoaiSanID=ft.LoaiSanID AND f.DangHoatDong=1 GROUP BY ft.TenLoaiSan");
-            // DonutStatusChart uses custom drawing - set data via property if available, else fallback
-            try{
-                var list=typeStats.Rows.Cast<System.Data.DataRow>().Select(r=>{
-                    var label=Convert.ToString(r["Label"]) ?? "";
-                    var total= r["Total"]==DBNull.Value ? 0 : Convert.ToInt32(r["Total"]);
-                    return (label,(decimal)total);
-                }).ToList();
-                // Try Items, Data, or Segments via reflection
-                var prop=donut.GetType().GetProperty("Items") ?? donut.GetType().GetProperty("Data") ?? donut.GetType().GetProperty("Segments");
-                if(prop!=null && prop.CanWrite) prop.SetValue(donut,list);
-                else{
-                    var field=donut.GetType().GetField("_items",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
-                    if(field!=null) field.SetValue(donut,list);
-                }
-            }catch{}
+            // Donut - Available/Busy/Maintenance
+            donut.Available=Math.Max(0,totalFields-busyFields-maintenance);
+            donut.Busy=busyFields;
+            donut.Maintenance=maintenance;
             donut.Invalidate();
 
             var rev7=Db.Query(@"SELECT FORMAT(CAST(NgayThanhToan AS DATE),'dd/MM') Label, SUM(SoTien) Value FROM ThanhToan WHERE TrangThai='Confirmed' AND NgayThanhToan>=@f GROUP BY CAST(NgayThanhToan AS DATE) ORDER BY CAST(NgayThanhToan AS DATE)",new SqlParameter("@f",today.AddDays(-6)));

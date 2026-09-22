@@ -746,7 +746,7 @@ public class SelectField : RoundedPanel
             g.FillRectangle(accent, e.Bounds.X + 2, e.Bounds.Y + 3, 3, e.Bounds.Height - 6);
         }
         string text = "";
-        try { text = Inner.GetItemText(Inner.Items[e.Index]); } catch { }
+        try { text = Inner.GetItemText(Inner.Items[e.Index]) ?? ""; } catch { }
         using var tb = new SolidBrush(selected ? AppTheme.AccentDark : AppTheme.Text);
         var f = new Font("Segoe UI", e.Index >= 0 ? 9.2F : 9.2F, selected ? FontStyle.Bold : FontStyle.Regular);
         g.DrawString(text, f, tb, e.Bounds.X + 12, e.Bounds.Y + 3);

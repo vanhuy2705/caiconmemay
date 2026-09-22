@@ -58,8 +58,10 @@ public partial class FrmFields:Form
             foreach(System.Data.DataRow dr in dt.Rows){ if((Convert.ToString(dr["TenLoaiSan"]) ?? "")==loaiTen){cboType.SelectedValue=dr["LoaiSanID"];break;}}
         }
         var tt=Convert.ToString(r["Trạng thái"]) ?? "Available";
-        cboStatus.SelectedItem= tt=="Maintenance" ? "Bảo trì" : "Sẵn sàng";
-        if(cboStatus.SelectedIndex<0) cboStatus.SelectedIndex=0;
+        if(cboStatus.Items.Count>0){
+            cboStatus.SelectedItem= tt=="Maintenance" ? "Bảo trì" : "Sẵn sàng";
+            if(cboStatus.SelectedIndex<0) cboStatus.SelectedIndex=0;
+        }
         chkActive.Checked= r["Hoạt động"]!=DBNull.Value && Convert.ToBoolean(r["Hoạt động"]);
         txtDesc.Text="";
     }
@@ -67,14 +69,14 @@ public partial class FrmFields:Form
         _id=null;
         txtCode.Text="S"+DateTime.Now.ToString("HHmmss");
         txtName.Clear();txtLocation.Clear();txtPrice.Text="100000";txtDesc.Clear();
-        if(cboType.Items.Count>0) cboType.SelectedIndex=0;
-        if(cboStatus.Items.Count>0) cboStatus.SelectedIndex=0;
+        if(cboType!=null && cboType.Items.Count>0) cboType.SelectedIndex=0;
+        if(cboStatus!=null && cboStatus.Items.Count>0) cboStatus.SelectedIndex=0;
         chkActive.Checked=true;
     }
     private bool TryParsePrice(out decimal price){
-        var txt=(txtPrice.Text ?? "").Replace(",","").Replace(".","").Trim();
-        // Allow N0 format
-        if(decimal.TryParse(txtPrice.Text.Replace(",",""), out price) && price>0) return true;
+        var raw=txtPrice.Text ?? "";
+        var txt=raw.Replace(",","").Replace(".","").Trim();
+        if(decimal.TryParse(raw.Replace(",",""), out price) && price>0) return true;
         if(decimal.TryParse(txt, out price) && price>0) return true;
         price=0;return false;
     }

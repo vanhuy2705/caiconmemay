@@ -314,6 +314,7 @@ public static class AppTheme
         e.Handled = true;
         e.PaintBackground(e.ClipBounds, false);
         var g = e.Graphics;
+        if(g==null) return;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
         string text = s;
