@@ -14,8 +14,6 @@ WHERE f.DangHoatDong=1 ORDER BY ft.TenLoaiSan,f.TenSan;");
     public DataTable GetAvailableFields(DateTime start, DateTime end, int? fieldTypeId = null)
     {
         ValidateBookingTime(start, end);
-        // V8 FIX: Dùng UPDLOCK,HOLDLOCK thay vì READCOMMITTEDLOCK để tránh race
-        // khi 2 người cùng check trống cùng lúc -> cùng đặt trùng.
         var sql = @"
 SELECT f.SanID,f.MaSan,f.TenSan,ft.TenLoaiSan,f.GiaMoiGio
 FROM SanTheThao f
@@ -116,7 +114,6 @@ ORDER BY PhanTramGiam DESC, KhuyenMaiID DESC;", cn, tx))
 
             if (voucherId.HasValue)
             {
-                // V8 FIX: Khóa voucher + check SoLuong tồn trong cùng transaction
                 using var vc = new SqlCommand(@"
 SELECT TOP 1 v.LoaiGiamGia,v.GiaTriGiam,v.MucGiamToiDa,v.DonToiThieu,v.SoLuong
 FROM PhieuGiamGia v WITH (UPDLOCK,HOLDLOCK)
@@ -131,8 +128,6 @@ AND @TienGoc>=v.DonToiThieu;", cn, tx);
                 using var r = vc.ExecuteReader();
                 if (!r.Read())
                     throw new InvalidOperationException("Voucher không còn hợp lệ, đã dùng, hết hạn hoặc đơn chưa đạt giá trị tối thiểu.");
-
-                // Kiểm tra SoLuong tổng nếu có giới hạn
                 if (r["SoLuong"] != DBNull.Value && Convert.ToInt32(r["SoLuong"]) <= 0)
                     throw new InvalidOperationException("Voucher đã hết số lượng sử dụng.");
 
@@ -195,7 +190,6 @@ VALUES(@Code,@DatSanID,@KhachHangID,@TienGoc,@Discount,@Total,0,@PaymentStatus,S
                 invoice.ExecuteNonQuery();
             }
 
-            // V8 FIX: Đánh dấu voucher đã dùng + trừ SoLuong nếu có giới hạn
             if (appliedVoucherId.HasValue)
             {
                 using var useVoucher = new SqlCommand(@"
@@ -207,7 +201,6 @@ WHERE KhachHangID=@KhachHangID AND PhieuGiamGiaID=@VoucherID AND DaSuDung=0;", c
                 if (useVoucher.ExecuteNonQuery() != 1)
                     throw new InvalidOperationException("Voucher vừa được sử dụng ở nơi khác. Vui lòng chọn voucher khác.");
 
-                // Trừ SoLuong tổng nếu có giới hạn (tránh vượt quá)
                 using var decQty = new SqlCommand(@"
 UPDATE PhieuGiamGia SET SoLuong = CASE WHEN SoLuong IS NULL THEN NULL ELSE SoLuong - 1 END
 WHERE PhieuGiamGiaID=@id AND (SoLuong IS NULL OR SoLuong > 0);", cn, tx);
@@ -225,37 +218,57 @@ WHERE PhieuGiamGiaID=@id AND (SoLuong IS NULL OR SoLuong > 0);", cn, tx);
         }
     }
 
-    public void CancelBooking(int bookingId, int? customerId = null)
+    public void SetStatus(int bookingId, string status, int? customerId = null)
     {
-        // V8: Hoàn voucher khi hủy nếu chưa thanh toán, trong transaction an toàn
+        if (status != "Confirmed" && status != "InUse" && status != "Completed" && status != "Cancelled")
+            throw new InvalidOperationException("Trạng thái đặt sân không hợp lệ.");
+
         using var cn = Db.OpenConnection();
         using var tx = cn.BeginTransaction(IsolationLevel.Serializable);
         try
         {
-            // Kiểm tra tồn tại và chưa thu tiền (trigger cũng check)
-            using var check = new SqlCommand(@"
-SELECT b.DatSanID, b.KhachHangID, b.PhieuGiamGiaID, h.SoTienDaTra, b.TrangThai
-FROM DatSan b JOIN HoaDon h ON h.DatSanID=b.DatSanID
-WHERE b.DatSanID=@id AND (@cid IS NULL OR b.KhachHangID=@cid);", cn, tx);
-            check.Parameters.AddWithValue("@id", bookingId);
-            check.Parameters.AddWithValue("@cid", (object?)customerId ?? DBNull.Value);
-            using var r = check.ExecuteReader();
-            if (!r.Read()) throw new InvalidOperationException("Không tìm thấy đơn đặt sân.");
-            var soTienDaTra = Convert.ToDecimal(r["SoTienDaTra"]);
-            var trangThai = Convert.ToString(r["TrangThai"]);
+            using var q = new SqlCommand(@"
+SELECT b.TrangThai,b.ThoiGianBatDau,ISNULL(h.SoTienDaTra,0) SoTienDaTra,b.KhachHangID,b.PhieuGiamGiaID
+FROM DatSan b WITH (UPDLOCK,HOLDLOCK)
+LEFT JOIN HoaDon h ON h.DatSanID=b.DatSanID
+WHERE b.DatSanID=@id AND (@CustomerID IS NULL OR b.KhachHangID=@CustomerID);", cn, tx);
+            q.Parameters.AddWithValue("@id", bookingId);
+            q.Parameters.AddWithValue("@CustomerID", (object?)customerId ?? DBNull.Value);
+            using var r = q.ExecuteReader();
+            if (!r.Read()) throw new InvalidOperationException("Không tìm thấy lịch đặt sân.");
+            var current = Convert.ToString(r["TrangThai"]) ?? "";
+            var paid = Convert.ToDecimal(r["SoTienDaTra"]);
+            var bookingStart = Convert.ToDateTime(r["ThoiGianBatDau"]);
             var khachHangId = Convert.ToInt32(r["KhachHangID"]);
             var phieuId = r["PhieuGiamGiaID"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["PhieuGiamGiaID"]);
             r.Close();
 
-            if (trangThai == "Cancelled") throw new InvalidOperationException("Đơn đã hủy trước đó.");
-            if (soTienDaTra > 0) throw new InvalidOperationException("Đơn đã thu tiền, cần hoàn tiền trước khi hủy.");
+            if (current == "Cancelled" || current == "Completed")
+                throw new InvalidOperationException("Lịch đặt đã kết thúc nên không thể đổi trạng thái.");
+            if (customerId.HasValue && status != "Cancelled")
+                throw new InvalidOperationException("Khách hàng chỉ được tự hủy lịch của mình.");
+            if (customerId.HasValue && status == "Cancelled")
+            {
+                int hours = SettingInt("CustomerCancellationHours", 2);
+                if (bookingStart <= DateTime.Now.AddHours(hours))
+                    throw new InvalidOperationException($"Chỉ có thể tự hủy trước giờ bắt đầu ít nhất {hours} giờ.");
+            }
+            if (status == "InUse" && current != "Confirmed" && current != "Pending")
+                throw new InvalidOperationException("Chỉ lịch đã xác nhận mới có thể chuyển sang đang sử dụng.");
+            if (status == "InUse" && bookingStart > DateTime.Now.AddMinutes(30))
+                throw new InvalidOperationException("Chỉ có thể nhận sân sớm tối đa 30 phút trước giờ bắt đầu.");
+            if (status == "Completed" && current != "InUse")
+                throw new InvalidOperationException("Hãy chuyển lịch sang Đang sử dụng trước khi hoàn thành.");
+            if (status == "Cancelled" && paid > 0)
+                throw new InvalidOperationException("Đơn đã nhận tiền. Hãy xử lý hoàn tiền trước khi hủy.");
 
-            using var upd = new SqlCommand("UPDATE DatSan SET TrangThai=N'Cancelled', NgayCapNhat=SYSDATETIME() WHERE DatSanID=@id", cn, tx);
-            upd.Parameters.AddWithValue("@id", bookingId);
-            upd.ExecuteNonQuery();
+            using var u = new SqlCommand("UPDATE DatSan SET TrangThai=@s,NgayCapNhat=SYSDATETIME() WHERE DatSanID=@id", cn, tx);
+            u.Parameters.AddWithValue("@s", status);
+            u.Parameters.AddWithValue("@id", bookingId);
+            u.ExecuteNonQuery();
 
-            // Trigger TR_DatSan_XuLyKhiHuy sẽ tự hoàn voucher, nhưng ta đảm bảo SoLuong tổng được hoàn nếu cần
-            if (phieuId.HasValue)
+            // Nếu hủy và có voucher, hoàn SoLuong tổng (trigger hoàn DaSuDung)
+            if (status == "Cancelled" && phieuId.HasValue)
             {
                 using var restoreQty = new SqlCommand(@"
 UPDATE PhieuGiamGia SET SoLuong = CASE WHEN SoLuong IS NULL THEN NULL ELSE SoLuong + 1 END
@@ -273,10 +286,45 @@ WHERE PhieuGiamGiaID=@id;", cn, tx);
         }
     }
 
+    public void CancelBooking(int bookingId, int? customerId = null)
+    {
+        SetStatus(bookingId, "Cancelled", customerId);
+    }
+
+    public DataTable GetBookingsForUser(string role, int? customerId)
+    {
+        var where = role == "Customer" ? "WHERE b.KhachHangID=@KhachHangID" : "";
+        return Db.Query($@"
+SELECT b.DatSanID,b.MaDatSan,c.HoTen AS Customer,f.TenSan,ft.TenLoaiSan,
+       b.ThoiGianBatDau,b.ThoiGianKetThuc,b.TongTien,b.TrangThai,b.TrangThaiThanhToan,b.NgayTao
+FROM DatSan b
+INNER JOIN KhachHang c ON c.KhachHangID=b.KhachHangID
+INNER JOIN SanTheThao f ON f.SanID=b.SanID
+INNER JOIN LoaiSan ft ON ft.LoaiSanID=f.LoaiSanID
+{where}
+ORDER BY b.ThoiGianBatDau DESC;",
+            new SqlParameter("@KhachHangID", (object?)customerId ?? DBNull.Value));
+    }
+
     private static void ValidateBookingTime(DateTime start, DateTime end)
     {
-        if (end <= start) throw new InvalidOperationException("Giờ kết thúc phải sau giờ bắt đầu.");
-        if ((end - start).TotalMinutes < 30) throw new InvalidOperationException("Thời lượng đặt tối thiểu 30 phút.");
+        if (end <= start) throw new InvalidOperationException("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+        if (start.Date != end.Date) throw new InvalidOperationException("Một lượt đặt sân phải bắt đầu và kết thúc trong cùng ngày.");
+        int minimum = SettingInt("MinimumBookingMinutes", 30);
+        if ((end - start).TotalMinutes < minimum)
+            throw new InvalidOperationException($"Thời lượng đặt sân tối thiểu là {minimum} phút.");
+
+        var settings = new SettingsService();
+        if (!TimeSpan.TryParse(settings.Get("OpenTime", "05:00"), out var open)) open = TimeSpan.FromHours(5);
+        if (!TimeSpan.TryParse(settings.Get("CloseTime", "23:00"), out var close)) close = TimeSpan.FromHours(23);
+        if (start.TimeOfDay < open || end.TimeOfDay > close)
+            throw new InvalidOperationException($"Thời gian hoạt động là {open:hh\\:mm} - {close:hh\\:mm}.");
         if ((end - start).TotalHours > 12) throw new InvalidOperationException("Thời lượng đặt tối đa 12 giờ.");
+    }
+
+    private static int SettingInt(string key, int fallback)
+    {
+        var value = new SettingsService().Get(key, fallback.ToString());
+        return int.TryParse(value, out var result) && result > 0 ? result : fallback;
     }
 }

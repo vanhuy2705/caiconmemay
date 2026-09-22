@@ -7,6 +7,8 @@ using QuanLyThueSanTheThao.Helpers;
 namespace QuanLyThueSanTheThao.Forms.Customer;
 public partial class FrmCustomerHome:Form
 {
+    private int? _filterLoaiSanId = null;
+    private string _filterLoaiSanName = "";
     public FrmCustomerHome()
     {
         InitializeComponent();AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
@@ -19,17 +21,39 @@ public partial class FrmCustomerHome:Form
 
     private void BuildCategories()
     {
-        AddCategory(SportIcon.Football,"Sân bóng đá","Phổ biến, linh hoạt",AppTheme.Info);
-        AddCategory(SportIcon.Badminton,"Sân cầu lông","Rèn luyện sức khỏe",AppTheme.Warning);
-        AddCategory(SportIcon.Volleyball,"Sân bóng chuyền","Thi đấu & tập luyện",AppTheme.Purple);
+        categoryFlow.Controls.Clear();
+        try{
+            var dt=Db.Query("SELECT LoaiSanID,TenLoaiSan FROM LoaiSan WHERE DangHoatDong=1 ORDER BY TenLoaiSan");
+            // Thêm "Tất cả"
+            AddCategory(null,"Tất cả sân","Hiển thị toàn bộ",AppTheme.Success,true);
+            foreach(System.Data.DataRow r in dt.Rows){
+                var id=Convert.ToInt32(r["LoaiSanID"]);
+                var name=Convert.ToString(r["TenLoaiSan"])??"";
+                var icon=name.Contains("bóng đá",StringComparison.OrdinalIgnoreCase)?SportIcon.Football:
+                         name.Contains("cầu lông",StringComparison.OrdinalIgnoreCase)?SportIcon.Badminton:
+                         name.Contains("chuyền",StringComparison.OrdinalIgnoreCase)?SportIcon.Volleyball:SportIcon.Field;
+                var color=icon==SportIcon.Football?AppTheme.Info:icon==SportIcon.Badminton?AppTheme.Warning:AppTheme.Purple;
+                AddCategory(id,name,name,color,false);
+            }
+        }catch{
+            AddCategory(SportIcon.Football,"Sân bóng đá","Phổ biến, linh hoạt",AppTheme.Info);
+            AddCategory(SportIcon.Badminton,"Sân cầu lông","Rèn luyện sức khỏe",AppTheme.Warning);
+            AddCategory(SportIcon.Volleyball,"Sân bóng chuyền","Thi đấu & tập luyện",AppTheme.Purple);
+        }
     }
-    private void AddCategory(SportIcon icon,string title,string sub,Color accent)
+    private void AddCategory(int? loaiId,string title,string sub,Color accent,bool isAll=false){
+        AddCategory(isAll?SportIcon.Category:(title.Contains("bóng đá")?SportIcon.Football:title.Contains("cầu lông")?SportIcon.Badminton:SportIcon.Volleyball),title,sub,accent,loaiId);
+    }
+    private void AddCategory(SportIcon icon,string title,string sub,Color accent,int? loaiId=null)
     {
-        var p=new RoundedPanel{Width=240,Height=54,Radius=14,BorderColor=Color.FromArgb(225,235,241),Margin=new Padding(4),BackColor=Color.White};
+        var p=new RoundedPanel{Width=240,Height=54,Radius=14,BorderColor=_filterLoaiSanId==loaiId?accent:Color.FromArgb(225,235,241),BorderThickness=_filterLoaiSanId==loaiId?2:1,Margin=new Padding(4),BackColor=_filterLoaiSanId==loaiId?Color.FromArgb(240,255,247):Color.White,Cursor=Cursors.Hand};
         var i=new IconBadge{IconImage=SportIcons.Get(icon,18,accent),AccentColor=Color.FromArgb(28,accent),Filled=false,Size=new Size(38,38),Location=new Point(8,8)};
         var t=new Label{Text=title,AutoSize=true,Font=new Font("Segoe UI Semibold",8.6F,FontStyle.Bold),ForeColor=AppTheme.Text,Location=new Point(50,8)};
         var s=new Label{Text=sub,AutoSize=true,Font=new Font("Segoe UI",7.2F),ForeColor=AppTheme.Muted,Location=new Point(50,28)};
-        p.Controls.AddRange(new Control[]{i,t,s});categoryFlow.Controls.Add(p);
+        p.Controls.AddRange(new Control[]{i,t,s});
+        p.Click+=(_,__)=>{ _filterLoaiSanId=loaiId; _filterLoaiSanName=title; lblFields.Text=loaiId==null?"★  Sân nổi bật":$"★  {title}"; BuildCategories(); LoadFields(); };
+        foreach(Control c in p.Controls) c.Click+=(s,e)=>p.OnClick(e);
+        categoryFlow.Controls.Add(p);
     }
 
     private void LoadData()
@@ -48,16 +72,28 @@ public partial class FrmCustomerHome:Form
             var voucher=Db.Query(@"SELECT TOP 1 v.TenPhieuGiamGia,v.LoaiGiamGia,v.GiaTriGiam,v.NgayKetThuc FROM PhieuGiamGiaKhachHang cv JOIN PhieuGiamGia v ON v.PhieuGiamGiaID=cv.PhieuGiamGiaID WHERE cv.KhachHangID=@c AND cv.DaSuDung=0 AND v.DangHoatDong=1 AND SYSDATETIME() BETWEEN v.NgayBatDau AND v.NgayKetThuc ORDER BY v.NgayKetThuc",new SqlParameter("@c",cid));
             if(voucher.Rows.Count>0){var r=voucher.Rows[0];var amount=Convert.ToString(r["LoaiGiamGia"])=="Percent"?$"GIẢM {Convert.ToDecimal(r["GiaTriGiam"]):0}%":$"GIẢM {Convert.ToDecimal(r["GiaTriGiam"]):N0}đ";lblVoucher.Text=$"{amount}\n{Convert.ToString(r["TenPhieuGiamGia"])}\nHSD: {Convert.ToDateTime(r["NgayKetThuc"]):dd/MM/yyyy}";}else lblVoucher.Text="CHƯA CÓ VOUCHER\nTheo dõi ưu đãi mới\nđể nhận khuyến mãi hấp dẫn";
 
-            var dt=Db.Query("SELECT TOP 12 f.TenSan,ft.TenLoaiSan,f.ViTri,f.GiaMoiGio,f.TrangThai FROM SanTheThao f JOIN LoaiSan ft ON ft.LoaiSanID=f.LoaiSanID WHERE f.DangHoatDong=1 AND ft.DangHoatDong=1 AND f.TrangThai='Available' ORDER BY ft.TenLoaiSan,f.TenSan");
+            LoadFields();
+        }
+        catch(Exception ex){UiMsg.Warn(ex.Message, "Trang chủ");}
+    }
+
+    private void LoadFields(){
+        try{
+            var sql=@"SELECT TOP 12 f.SanID,f.TenSan,ft.TenLoaiSan,f.ViTri,f.GiaMoiGio,f.TrangThai FROM SanTheThao f JOIN LoaiSan ft ON ft.LoaiSanID=f.LoaiSanID WHERE f.DangHoatDong=1 AND ft.DangHoatDong=1 AND f.TrangThai='Available' AND (@LoaiID IS NULL OR f.LoaiSanID=@LoaiID) ORDER BY ft.TenLoaiSan,f.TenSan";
+            var dt=Db.Query(sql, new SqlParameter("@LoaiID",(object?)_filterLoaiSanId??DBNull.Value));
             flpFields.Controls.Clear();
             foreach(System.Data.DataRow r in dt.Rows)
             {
                 var card=new FieldCardControl(Convert.ToString(r["TenSan"])??"Sân",Convert.ToString(r["TenLoaiSan"])??"",Convert.ToString(r["ViTri"])??"",Convert.ToDecimal(r["GiaMoiGio"]));
-                card.BookClicked+=(_,__)=>OpenBooking();
+                var sanId=Convert.ToInt32(r["SanID"]);
+                card.BookClicked+=(_,__)=>OpenBooking(sanId);
                 flpFields.Controls.Add(card);
             }
-        }
-        catch(Exception ex){UiMsg.Warn(ex.Message, "Trang chủ");}
+            if(flpFields.Controls.Count==0){
+                var empty=new Label{Text=$"Không có sân trống cho '{_filterLoaiSanName}'.\nThử chọn loại khác hoặc xem tất cả.",AutoSize=false,Size=new Size(400,60),Font=new Font("Segoe UI",9F),ForeColor=AppTheme.Muted,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(12,0,0,0)};
+                flpFields.Controls.Add(empty);
+            }
+        }catch(Exception ex){UiMsg.Warn(ex.Message,"Tải sân");}
     }
 
     private Control MiniStat(SportIcon icon,string title,string value,Color color)
@@ -69,9 +105,12 @@ public partial class FrmCustomerHome:Form
         p.Controls.AddRange(new Control[]{i,t,v});return p;
     }
 
-    private void OpenBooking()
+    private void OpenBooking(int? preselectedFieldId=null)
     {
         using var f=new FrmBooking(customerMode:true){Text="Đặt sân",StartPosition=FormStartPosition.CenterParent,Size=new Size(Math.Min(1060,Width-60),Math.Min(720,Height-60))};
-        AppTheme.ApplyToForm(f,"Customer");f.ShowDialogFx(this);LoadData();
+        // Nếu có preselectedFieldId, có thể truyền qua Tag hoặc property (để đơn giản, chỉ mở form)
+        AppTheme.ApplyToForm(f,"Customer");
+        f.ShowDialogFx(this);
+        LoadData();
     }
 }
