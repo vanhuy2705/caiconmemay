@@ -9,7 +9,8 @@ public partial class FrmBookingSchedule:Form
     private readonly BookingService _booking = new();
     public FrmBookingSchedule(){
         InitializeComponent();
-        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
+        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
+        try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         AppTheme.StyleGrid(grid);
         AppTheme.StyleSecondary(btnRefresh);
         AppTheme.StylePrimary(btnStart);
@@ -29,8 +30,16 @@ public partial class FrmBookingSchedule:Form
         grid.CellDoubleClick+=(_,__)=>ShowHistory();
         Shown+=(_,__)=>LoadData();
     }
-    private int? SelectedId()=>grid.CurrentRow?.Cells["DatSanID"].Value is object v?Convert.ToInt32(v):null;
-    private string StatusCode()=>cboStatus.Text switch{"Đã xác nhận"=>"Confirmed","Đang sử dụng"=>"InUse","Hoàn thành"=>"Completed","Đã hủy"=>"Cancelled",_=>""};
+    private int? SelectedId(){
+        if(grid.CurrentRow==null) return null;
+        var v=grid.CurrentRow.Cells["DatSanID"].Value;
+        if(v==null || v==DBNull.Value) return null;
+        return Convert.ToInt32(v);
+    }
+    private string StatusCode(){
+        var txt=Convert.ToString(cboStatus.SelectedItem) ?? "";
+        return txt switch{"Đã xác nhận"=>"Confirmed","Đang sử dụng"=>"InUse","Hoàn thành"=>"Completed","Đã hủy"=>"Cancelled",_=>""};
+    }
     private void LoadData(){
         try{
             var status=StatusCode();
@@ -46,8 +55,8 @@ public partial class FrmBookingSchedule:Form
     private void ShowHistory(){
         var id=SelectedId();if(id==null){UiMsg.Warn("Chọn lịch để xem lịch sử.");return;}
         try{
-            var dt=Db.Query(@"SELECT ThoiDiem [Thời gian], ISNULL(TrangThaiCu,N'(mới)') [Từ trạng thái], TrangThaiMoi [Đến trạng thái], ISNULL(TrangThaiThanhToanCu,N'') [TT Thanh toán cũ], TrangThaiThanhToanMoi [TT Thanh toán mới] FROM LichSuDatSan WHERE DatSanID=@id ORDER BY ThoiDiem DESC", new SqlParameter("@id",id));
-            using var f=new Form{Text=$"Lịch sử đơn DS{id:000000}",StartPosition=FormStartPosition.CenterParent,Size=new Size(720,420),BackColor=Color.White};
+            var dt=Db.Query(@"SELECT ThoiDiem [Thời gian], ISNULL(TrangThaiCu,N'(mới)') [Từ trạng thái], TrangThaiMoi [Đến trạng thái], ISNULL(TrangThaiThanhToanCu,N'') [TT Thanh toán cũ], TrangThaiThanhToanMoi [TT Thanh toán mới] FROM LichSuDatSan WHERE DatSanID=@id ORDER BY ThoiDiem DESC", new SqlParameter("@id",id.Value));
+            using var f=new Form{Text=$"Lịch sử đơn DS{id.Value:000000}",StartPosition=FormStartPosition.CenterParent,Size=new Size(720,420),BackColor=Color.White};
             var gridHist=new DataGridView{Dock=DockStyle.Fill, DataSource=dt, BackgroundColor=Color.White, BorderStyle=BorderStyle.None, AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill, ReadOnly=true, AllowUserToAddRows=false};
             AppTheme.StyleGrid(gridHist);
             f.Controls.Add(gridHist);

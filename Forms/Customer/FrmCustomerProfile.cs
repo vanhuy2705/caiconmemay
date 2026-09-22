@@ -1,20 +1,32 @@
-using Microsoft.Data.SqlClient;using QuanLyThueSanTheThao.Data;using QuanLyThueSanTheThao.Helpers;
+using Microsoft.Data.SqlClient;
+using QuanLyThueSanTheThao.Data;
+using QuanLyThueSanTheThao.Helpers;
+
 namespace QuanLyThueSanTheThao.Forms.Customer;
 public partial class FrmCustomerProfile:Form
 {
-    public FrmCustomerProfile(){InitializeComponent();AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}AppTheme.StylePrimary(btnSave);AppTheme.StyleSecondary(btnChangePassword);btnSave.Click+=(_,__)=>Save();btnChangePassword.Click+=(_,__)=>ChangePassword();Shown+=(_,__)=>LoadData();}
+    public FrmCustomerProfile(){
+        InitializeComponent();
+        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
+        try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
+        AppTheme.StylePrimary(btnSave);
+        AppTheme.StyleSecondary(btnChangePassword);
+        btnSave.Click+=(_,__)=>Save();
+        btnChangePassword.Click+=(_,__)=>ChangePassword();
+        Shown+=(_,__)=>LoadData();
+    }
     private void LoadData(){
         try{
             var dt=Db.Query("SELECT MaKhachHang,HoTen,SoDienThoai,Email,DiaChi,NgaySinh,DiemTichLuy FROM KhachHang WHERE KhachHangID=@id",new SqlParameter("@id",SessionContext.CustomerId??0));
             if(dt.Rows.Count==0)return;
             var r=dt.Rows[0];
-            txtCode.Text=Convert.ToString(r["MaKhachHang"]);
-            txtName.Text=Convert.ToString(r["HoTen"]);
-            txtPhone.Text=Convert.ToString(r["SoDienThoai"]);
-            txtEmail.Text=Convert.ToString(r["Email"]);
-            txtAddress.Text=Convert.ToString(r["DiaChi"]);
-            if(r["NgaySinh"]!=DBNull.Value)dtBirth.Value=Convert.ToDateTime(r["NgaySinh"]);
-            lblPoints.Text="Điểm tích lũy: "+Convert.ToString(r["DiemTichLuy"]);
+            txtCode.Text=Convert.ToString(r["MaKhachHang"]) ?? "";
+            txtName.Text=Convert.ToString(r["HoTen"]) ?? "";
+            txtPhone.Text=Convert.ToString(r["SoDienThoai"]) ?? "";
+            txtEmail.Text=Convert.ToString(r["Email"]) ?? "";
+            txtAddress.Text=Convert.ToString(r["DiaChi"]) ?? "";
+            if(r["NgaySinh"]!=DBNull.Value) dtBirth.Value=Convert.ToDateTime(r["NgaySinh"]);
+            lblPoints.Text="Điểm tích lũy: "+(Convert.ToString(r["DiemTichLuy"]) ?? "0");
         }catch(Exception ex){UiMsg.Error(ex.Message,"Tải hồ sơ");}
     }
     private void Save(){
@@ -27,7 +39,7 @@ public partial class FrmCustomerProfile:Form
             var dup=Db.Query(@"SELECT CASE WHEN @p<>'' AND EXISTS(SELECT 1 FROM KhachHang WHERE SoDienThoai=@p AND KhachHangID<>@id) THEN N'Số điện thoại đã tồn tại'
                 WHEN @e<>'' AND EXISTS(SELECT 1 FROM KhachHang WHERE Email=@e AND KhachHangID<>@id) THEN N'Email đã tồn tại' ELSE '' END",
                 new SqlParameter("@p",phone), new SqlParameter("@e",email), new SqlParameter("@id",SessionContext.CustomerId??0));
-            var msg=Convert.ToString(dup.Rows[0][0])??"";
+            var msg=dup.Rows.Count>0 ? (Convert.ToString(dup.Rows[0][0]) ?? "") : "";
             if(msg.Length>0){UiMsg.Warn(msg);return;}
 
             Db.Execute("UPDATE KhachHang SET HoTen=@n,SoDienThoai=NULLIF(@p,N''),Email=NULLIF(@e,N''),DiaChi=NULLIF(@a,N''),NgaySinh=@d WHERE KhachHangID=@id",
@@ -51,9 +63,10 @@ public partial class FrmCustomerProfile:Form
         b.Click+=(_,__)=>{
             try{
                 var dt=Db.Query("SELECT MatKhauBam,MuoiMatKhau FROM TaiKhoan WHERE TaiKhoanID=@id",new SqlParameter("@id",SessionContext.UserId));
-                if(dt.Rows.Count==0)return;
-                var salt=Convert.ToString(dt.Rows[0]["MuoiMatKhau"])??"";
-                if(!PasswordHelper.Verify(salt,oldP.Text,Convert.ToString(dt.Rows[0]["MatKhauBam"])??"")){UiMsg.Warn("Mật khẩu hiện tại không đúng.");return;}
+                if(dt.Rows.Count==0) return;
+                var salt=Convert.ToString(dt.Rows[0]["MuoiMatKhau"]) ?? "";
+                var hash=Convert.ToString(dt.Rows[0]["MatKhauBam"]) ?? "";
+                if(!PasswordHelper.Verify(salt,oldP.Text,hash)){UiMsg.Warn("Mật khẩu hiện tại không đúng.");return;}
                 if(newP.Text.Length<6||newP.Text!=confirm.Text){UiMsg.Warn("Mật khẩu mới tối thiểu 6 ký tự và phải nhập lại chính xác.");return;}
                 var ns=PasswordHelper.CreateSalt();
                 Db.Execute("UPDATE TaiKhoan SET MuoiMatKhau=@s,MatKhauBam=@h WHERE TaiKhoanID=@id",new SqlParameter("@s",ns),new SqlParameter("@h",PasswordHelper.Hash(ns,newP.Text)),new SqlParameter("@id",SessionContext.UserId));

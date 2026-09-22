@@ -10,7 +10,8 @@ public partial class FrmInvoices:Form
     private readonly PaymentService _payment = new();
     public FrmInvoices(){
         InitializeComponent();
-        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);try{var sp=this.Controls.OfType<System.Windows.Forms.SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
+        AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
+        try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         AppTheme.StyleGrid(grid);
         AppTheme.StyleSecondary(btnRefresh);
         AppTheme.StylePrimary(btnPay);
@@ -27,7 +28,7 @@ public partial class FrmInvoices:Form
         grid.CellDoubleClick+=(_,__)=>ShowPaymentHistory();
         Shown+=(_,__)=>LoadData();
     }
-    private string StatusCode()=>cboStatus.Text switch{"Chưa thanh toán"=>"Unpaid","Thanh toán một phần"=>"PartiallyPaid","Đã thanh toán"=>"Paid",_=>""};
+    private string StatusCode()=> (Convert.ToString(cboStatus.SelectedItem) ?? "") switch{"Chưa thanh toán"=>"Unpaid","Thanh toán một phần"=>"PartiallyPaid","Đã thanh toán"=>"Paid",_=>""};
     private void LoadData(){
         try{
             var st=StatusCode();
@@ -37,26 +38,34 @@ public partial class FrmInvoices:Form
     }
     private void Pay(){
         if(grid.CurrentRow==null){UiMsg.Warn("Chọn hóa đơn cần thanh toán.");return;}
-        var bookingId=Convert.ToInt32(grid.CurrentRow.Cells["DatSanID"].Value);
+        var cell=grid.CurrentRow.Cells["DatSanID"].Value;
+        if(cell==null || cell==DBNull.Value){UiMsg.Warn("Không xác định được đơn đặt.");return;}
+        var bookingId=Convert.ToInt32(cell);
         using var f=new FrmPayment(bookingId);
         f.ShowDialogFx(this);
         LoadData();
     }
     private void ConfirmPending(){
         if(grid.CurrentRow==null){UiMsg.Warn("Chọn hóa đơn cần xác nhận.");return;}
-        var invoiceId=Convert.ToInt32(grid.CurrentRow.Cells["HoaDonID"].Value);
-        var dt=Db.Query("SELECT TOP 1 SoTien,PhuongThucThanhToan,MaGiaoDich FROM ThanhToan WHERE HoaDonID=@i AND TrangThai='Pending' ORDER BY NgayTao DESC",new SqlParameter("@i",invoiceId));
-        if(dt.Rows.Count==0){UiMsg.Warn("Hóa đơn này không có giao dịch chuyển khoản/QR đang chờ xác nhận.");return;}
-        var r=dt.Rows[0];
-        if(UiMsg.Ask($"Xác nhận đã nhận {Convert.ToDecimal(r["SoTien"]):N0} đ qua {r["PhuongThucThanhToan"]}?", "Xác nhận tiền về")!=DialogResult.Yes)return;
+        var cell=grid.CurrentRow.Cells["HoaDonID"].Value;
+        if(cell==null || cell==DBNull.Value){UiMsg.Warn("Không xác định được hóa đơn.");return;}
+        var invoiceId=Convert.ToInt32(cell);
         try{
+            var dt=Db.Query("SELECT TOP 1 SoTien,PhuongThucThanhToan,MaGiaoDich FROM ThanhToan WHERE HoaDonID=@i AND TrangThai='Pending' ORDER BY NgayTao DESC",new SqlParameter("@i",invoiceId));
+            if(dt.Rows.Count==0){UiMsg.Warn("Hóa đơn này không có giao dịch chuyển khoản/QR đang chờ xác nhận.");return;}
+            var r=dt.Rows[0];
+            var soTien= r["SoTien"]==DBNull.Value ? 0 : Convert.ToDecimal(r["SoTien"]);
+            var pttt=Convert.ToString(r["PhuongThucThanhToan"]) ?? "";
+            if(UiMsg.Ask($"Xác nhận đã nhận {soTien:N0} đ qua {pttt}?","Xác nhận tiền về")!=DialogResult.Yes)return;
             if(!_payment.ConfirmLatestPending(invoiceId)){UiMsg.Warn("Giao dịch không còn ở trạng thái chờ xác nhận.");return;}
             LoadData();Toast.Success("Đã xác nhận tiền về.");
         }catch(Exception ex){UiMsg.Error(ex.Message,"Xác nhận thanh toán");}
     }
     private void ShowPaymentHistory(){
         if(grid.CurrentRow==null){UiMsg.Warn("Chọn hóa đơn để xem lịch sử.");return;}
-        var invoiceId=Convert.ToInt32(grid.CurrentRow.Cells["HoaDonID"].Value);
+        var cell=grid.CurrentRow.Cells["HoaDonID"].Value;
+        if(cell==null || cell==DBNull.Value){UiMsg.Warn("Không xác định được hóa đơn.");return;}
+        var invoiceId=Convert.ToInt32(cell);
         try{
             var dt=Db.Query(@"SELECT NgayTao [Ngày tạo], SoTien [Số tiền], PhuongThucThanhToan [Phương thức], MaGiaoDich [Mã GD], TrangThai [Trạng thái], NgayThanhToan [Ngày TT] FROM ThanhToan WHERE HoaDonID=@id ORDER BY NgayTao DESC", new SqlParameter("@id",invoiceId));
             using var f=new Form{Text=$"Lịch sử thanh toán HD{invoiceId:000000}",StartPosition=FormStartPosition.CenterParent,Size=new Size(700,380),BackColor=Color.White};

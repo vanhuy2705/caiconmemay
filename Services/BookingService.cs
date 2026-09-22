@@ -115,12 +115,12 @@ ORDER BY PhanTramGiam DESC, KhuyenMaiID DESC;", cn, tx))
             if (voucherId.HasValue)
             {
                 using var vc = new SqlCommand(@"
-SELECT TOP 1 v.LoaiGiamGia,v.GiaTriGiam,v.MucGiamToiDa,v.DonToiThieu,v.SoLuong
+SELECT TOP 1 v.LoaiGiamGia,v.GiaTriGiam,v.GiaTriGiamToiDa,v.GiaTriDonHangToiThieu,v.SoLuong
 FROM PhieuGiamGia v WITH (UPDLOCK,HOLDLOCK)
 INNER JOIN PhieuGiamGiaKhachHang cv WITH (UPDLOCK,HOLDLOCK) ON cv.PhieuGiamGiaID=v.PhieuGiamGiaID
 WHERE cv.KhachHangID=@KhachHangID AND v.PhieuGiamGiaID=@PhieuGiamGiaID
 AND cv.DaSuDung=0 AND v.DangHoatDong=1 AND @BookingTime BETWEEN v.NgayBatDau AND v.NgayKetThuc
-AND @TienGoc>=v.DonToiThieu;", cn, tx);
+AND @TienGoc>=v.GiaTriDonHangToiThieu;", cn, tx);
                 vc.Parameters.AddWithValue("@KhachHangID", customerId);
                 vc.Parameters.AddWithValue("@PhieuGiamGiaID", voucherId.Value);
                 vc.Parameters.AddWithValue("@BookingTime", start);
@@ -133,7 +133,7 @@ AND @TienGoc>=v.DonToiThieu;", cn, tx);
 
                 var type = Convert.ToString(r["LoaiGiamGia"]) ?? "Fixed";
                 var value = Convert.ToDecimal(r["GiaTriGiam"]);
-                var max = r["MucGiamToiDa"] == DBNull.Value ? decimal.MaxValue : Convert.ToDecimal(r["MucGiamToiDa"]);
+                var max = r["GiaTriGiamToiDa"] == DBNull.Value ? decimal.MaxValue : Convert.ToDecimal(r["GiaTriGiamToiDa"]);
                 var voucherBase = Math.Max(0, subtotal - discount);
                 var voucherDiscount = type == "Percent" ? voucherBase * value / 100m : value;
                 voucherDiscount = Math.Round(voucherDiscount, 0, MidpointRounding.AwayFromZero);
