@@ -1,0 +1,20 @@
+SPORTFIELD V4 PRO - KẾT QUẢ KIỂM TRA TRƯỚC KHI ĐÓNG GÓI
+
+[PASS] 69 file C#: không lệch ngoặc/chuỗi/comment theo bộ quét tĩnh.
+[PASS] 24 form cụ thể đều có file .Designer.cs và gọi InitializeComponent().
+[PASS] Không còn TODO/FIXME/NotImplementedException trong mã nguồn.
+[PASS] 13/13 bảng mà mã C# truy cập đều tồn tại trong DDL.
+[PASS] CSDL gồm 14 bảng, 22 index, 14 trigger, 2 view, 3 stored procedure.
+[PASS] Không trùng tên đối tượng CREATE trong script SQL.
+[PASS] QuanLySanTheThaoDB.sql giống QuanLySanTheThaoDB_V4_PRO.sql.
+[PASS] DatabaseVersion của app và CSDL cùng là 4.0 PRO.
+[PASS] Hash của admin/admin123, staff/staff123, customer/customer123 đúng PasswordHelper.
+[PASS] File .csproj là XML hợp lệ; gói ZIP nguồn ban đầu không hỏng.
+
+Môi trường đóng gói không có .NET SDK cho Windows và SQL Server nên không thể
+chạy F5/Execute T-SQL trực tiếp tại đây. Kiểm thử chạy thật cuối cùng trên Windows:
+1. Execute Database\QuanLySanTheThaoDB_V4_PRO.sql trong SSMS.
+2. Kiểm tra dbo.usp_KiemTraCSDL và dbo.usp_KiemTraChucNang đều PASS.
+3. Rebuild Solution trong Visual Studio 2022 (.NET 8) rồi F5.
+
+Script SQL là cài mới sạch và sẽ DROP QuanLySanTheThaoDB cũ. Backup trước khi chạy.

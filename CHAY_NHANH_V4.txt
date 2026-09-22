@@ -1,0 +1,21 @@
+SPORTFIELD V4 PRO - CHẠY NHANH
+
+1. Cài Visual Studio 2022, chọn workload ".NET desktop development".
+2. Cài SQL Server Express (instance SQLEXPRESS) và SQL Server Management Studio.
+3. Mở SSMS, kết nối .\SQLEXPRESS.
+4. Mở Database\QuanLySanTheThaoDB_V4_PRO.sql và Execute toàn bộ (F5).
+   LƯU Ý: script cài sạch, sẽ xóa QuanLySanTheThaoDB cũ. Hãy backup trước nếu cần.
+5. Kết quả dbo.usp_KiemTraCSDL và dbo.usp_KiemTraChucNang phải đều PASS.
+   Nếu có mục FAIL, script sẽ dừng để tránh chạy app trên CSDL không hoàn chỉnh.
+6. Mở QuanLyThueSanTheThao.sln bằng Visual Studio.
+7. Restore NuGet, Build Solution, nhấn F5.
+
+Tài khoản mẫu:
+- Admin: admin / admin123
+- Nhân viên: staff / staff123
+- Khách hàng: customer / customer123
+
+Nếu SQL Server dùng tên khác, tạo biến môi trường SPORTFIELD_SQLSERVER, ví dụ:
+SPORTFIELD_SQLSERVER=DESKTOP-ABC\SQLEXPRESS
+
+Ứng dụng bắt buộc DatabaseVersion=4.0 PRO để ngăn chạy nhầm CSDL cũ.

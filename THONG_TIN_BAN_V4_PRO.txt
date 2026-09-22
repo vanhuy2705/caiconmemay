@@ -1,0 +1,17 @@
+SPORTFIELD WINFORMS + SQL SERVER - V4 PRO
+
+Các nâng cấp chính
+- Giao diện shell dùng sidebar thống nhất, cuộn được, không ép 13 mục Admin trên thanh ngang.
+- Bộ icon SportField tự vẽ bằng GDI+, không phụ thuộc font icon/file ảnh ngoài.
+- Nút, bảng, màu trạng thái, DPI và vùng cuộn được chuẩn hóa.
+- Đăng ký khách hàng; Admin có thể tạo tài khoản cho hồ sơ khách đã có.
+- Đăng nhập bằng tên tài khoản, email hoặc số điện thoại.
+- Hoàn chỉnh vòng đời đặt sân: tạo -> bắt đầu -> hoàn tất/hủy.
+- Hóa đơn, tiền mặt, QR/chuyển khoản chờ xác nhận và thống kê doanh thu thực thu.
+- CSDL V4 PRO có khóa ngoại, CHECK, index, 14 trigger nghiệp vụ, view, kiểm tra
+  sức khỏe và smoke test CRUD/đặt sân/voucher/thanh toán tự rollback.
+
+File SQL chính: Database\QuanLySanTheThaoDB_V4_PRO.sql
+File SQL rút gọn cùng nội dung: Database\QuanLySanTheThaoDB.sql
+
+Script cài sạch sẽ DROP database cũ. Luôn backup trước khi Execute.

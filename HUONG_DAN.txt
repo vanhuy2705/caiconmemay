@@ -1,0 +1,37 @@
+QUẢN LÝ THUÊ SÂN THỂ THAO - V4 PRO
+
+Công nghệ
+- .NET 8 Windows Forms, nullable enabled, PerMonitorV2 DPI.
+- SQL Server / SQL Server Express.
+- Microsoft.Data.SqlClient và QRCoder.
+- CSDL: QuanLySanTheThaoDB, DatabaseVersion=4.0 PRO.
+
+Cài đặt
+1. Backup QuanLySanTheThaoDB cũ nếu cần giữ dữ liệu.
+2. Trong SSMS kết nối .\SQLEXPRESS.
+3. Execute Database\QuanLySanTheThaoDB_V4_PRO.sql.
+4. Kiểm tra kết quả: usp_KiemTraCSDL và usp_KiemTraChucNang đều phải PASS.
+   Có thể chạy lại Database\KIEM_TRA_HE_THONG_V4.sql bất kỳ lúc nào.
+5. Mở QuanLyThueSanTheThao.sln, Restore NuGet, Rebuild và F5.
+
+Luồng kiểm thử đề nghị
+1. Đăng nhập Admin, kiểm tra dashboard có dữ liệu mẫu.
+2. Tạo loại sân/sân/khách hàng; chọn khách và bấm "Tạo tài khoản đăng nhập".
+3. Tạo lịch đặt, kiểm tra hóa đơn tự sinh và thanh toán tiền mặt hoặc QR.
+4. Với QR/chuyển khoản, vào Hóa đơn và xác nhận tiền về.
+5. Vào Lịch đặt sân: Bắt đầu -> Hoàn tất. Trạng thái sân được CSDL đồng bộ.
+6. Đăng ký một tài khoản mới ở màn hình đăng nhập; đăng nhập và kiểm tra lịch sử,
+   hóa đơn, voucher và thông tin cá nhân.
+
+Quy tắc dữ liệu chính
+- Không cho hai lịch hoạt động trùng giờ trên cùng một sân.
+- Không cho thanh toán vượt số còn lại hoặc thanh toán đơn đã hủy.
+- Khách chỉ tự hủy trước giờ bắt đầu theo cấu hình (mặc định 2 giờ) và khi chưa thu tiền.
+- Một lượt đặt nằm trong cùng ngày, trong giờ mở cửa và tối thiểu 30 phút.
+- Email/SĐT khách hàng và nhân viên không trùng trong từng nhóm; tài khoản gắn đúng vai trò.
+- Voucher kiểm soát số lượng, một khách chỉ nhận một lần và tự trả lại khi hủy hợp lệ.
+
+Kết nối máy khác
+- Mặc định: .\SQLEXPRESS, Windows Authentication.
+- Nếu instance khác, đặt biến môi trường SPORTFIELD_SQLSERVER trước khi chạy app.
+- Không chép MDF/LDF thủ công; hãy chạy script SQL trên máy đích.
