@@ -10,9 +10,9 @@ public partial class FrmEmployeeAccount:Form
         AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
         try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
         AppTheme.StylePrimary(btnSave);
-        AppTheme.StyleSecondary(btnChangePassword);
+        AppTheme.StyleSecondary(btnPassword);
         btnSave.Click+=(_,__)=>Save();
-        btnChangePassword.Click+=(_,__)=>ChangePassword();
+        btnPassword.Click+=(_,__)=>ChangePassword();
         Shown+=(_,__)=>LoadData();
     }
     private void LoadData(){

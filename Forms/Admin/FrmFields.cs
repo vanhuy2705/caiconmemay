@@ -6,7 +6,9 @@ namespace QuanLyThueSanTheThao.Forms.Admin;
 public partial class FrmFields:Form
 {
     private int? _id;
-    public FrmFields(){
+    private readonly bool _readOnly;
+    public FrmFields(bool readOnly=false){
+        _readOnly=readOnly;
         InitializeComponent();
         AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
         try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
@@ -15,6 +17,11 @@ public partial class FrmFields:Form
         AppTheme.StyleSecondary(btnNew);
         AppTheme.StylePrimary(btnSave);
         AppTheme.StyleDanger(btnDelete);
+        if(_readOnly){
+            btnNew.Enabled=false;btnSave.Enabled=false;btnDelete.Enabled=false;
+            txtCode.ReadOnly=true;txtName.ReadOnly=true;txtLocation.ReadOnly=true;txtPrice.ReadOnly=true;txtDesc.ReadOnly=true;
+            cboType.Enabled=false;cboStatus.Enabled=false;chkActive.Enabled=false;
+        }
         LoadTypes();
         grid.SelectionChanged+=(_,__)=>Bind();
         txtSearch.TextChanged+=(_,__)=>LoadData();
@@ -45,7 +52,7 @@ public partial class FrmFields:Form
         txtCode.Text=Convert.ToString(r["Mã sân"]) ?? "";
         txtName.Text=Convert.ToString(r["Tên sân"]) ?? "";
         txtLocation.Text=Convert.ToString(r["Vị trí"]) ?? "";
-        if(r["Giá/giờ"]!=DBNull.Value) numPrice.Value=Math.Min(numPrice.Maximum, Convert.ToDecimal(r["Giá/giờ"]));
+        txtPrice.Text= r["Giá/giờ"]==DBNull.Value ? "" : Convert.ToDecimal(r["Giá/giờ"]).ToString("N0");
         var loaiTen=Convert.ToString(r["Loại sân"]) ?? "";
         if(cboType.DataSource is System.Data.DataTable dt){
             foreach(System.Data.DataRow dr in dt.Rows){ if((Convert.ToString(dr["TenLoaiSan"]) ?? "")==loaiTen){cboType.SelectedValue=dr["LoaiSanID"];break;}}
@@ -54,19 +61,28 @@ public partial class FrmFields:Form
         cboStatus.SelectedItem= tt=="Maintenance" ? "Bảo trì" : "Sẵn sàng";
         if(cboStatus.SelectedIndex<0) cboStatus.SelectedIndex=0;
         chkActive.Checked= r["Hoạt động"]!=DBNull.Value && Convert.ToBoolean(r["Hoạt động"]);
+        txtDesc.Text="";
     }
     private void Clear(){
         _id=null;
         txtCode.Text="S"+DateTime.Now.ToString("HHmmss");
-        txtName.Clear();txtLocation.Clear();numPrice.Value=100000;
+        txtName.Clear();txtLocation.Clear();txtPrice.Text="100000";txtDesc.Clear();
         if(cboType.Items.Count>0) cboType.SelectedIndex=0;
-        cboStatus.SelectedIndex=0;
+        if(cboStatus.Items.Count>0) cboStatus.SelectedIndex=0;
         chkActive.Checked=true;
     }
+    private bool TryParsePrice(out decimal price){
+        var txt=(txtPrice.Text ?? "").Replace(",","").Replace(".","").Trim();
+        // Allow N0 format
+        if(decimal.TryParse(txtPrice.Text.Replace(",",""), out price) && price>0) return true;
+        if(decimal.TryParse(txt, out price) && price>0) return true;
+        price=0;return false;
+    }
     private void Save(){
+        if(_readOnly){UiMsg.Warn("Chế độ chỉ xem.");return;}
         if(string.IsNullOrWhiteSpace(txtCode.Text)||string.IsNullOrWhiteSpace(txtName.Text)){UiMsg.Warn("Nhập mã sân và tên sân.");return;}
-        if(cboType.SelectedValue==null){UiMsg.Warn("Chọn loại sân.");return;}
-        if(numPrice.Value<=0){UiMsg.Warn("Giá phải >0.");return;}
+        if(cboType.SelectedValue==null || cboType.SelectedValue==DBNull.Value){UiMsg.Warn("Chọn loại sân.");return;}
+        if(!TryParsePrice(out var priceVal)){UiMsg.Warn("Giá phải >0 (nhập số).");return;}
         try{
             var dup=Db.Query(@"SELECT CASE WHEN EXISTS(SELECT 1 FROM SanTheThao WHERE MaSan=@c AND (@id IS NULL OR SanID<>@id)) THEN N'Mã sân đã tồn tại' ELSE '' END",
                 new SqlParameter("@c",txtCode.Text.Trim()),
@@ -81,16 +97,18 @@ public partial class FrmFields:Form
                 new("@n",txtName.Text.Trim()),
                 new("@l",loaiId),
                 new("@vt",string.IsNullOrWhiteSpace(txtLocation.Text)? (object)DBNull.Value : txtLocation.Text.Trim()),
-                new("@g",numPrice.Value),
+                new("@g",priceVal),
                 new("@tt",trangThai),
-                new("@a",chkActive.Checked)
+                new("@a",chkActive.Checked),
+                new("@d",string.IsNullOrWhiteSpace(txtDesc.Text)? (object)DBNull.Value : txtDesc.Text.Trim())
             };
-            if(_id==null) Db.Execute("INSERT INTO SanTheThao(MaSan,TenSan,LoaiSanID,ViTri,GiaMoiGio,TrangThai,DangHoatDong) VALUES(@c,@n,@l,@vt,@g,@tt,@a)",pars.ToArray());
-            else{pars.Add(new SqlParameter("@id",_id.Value));Db.Execute("UPDATE SanTheThao SET MaSan=@c,TenSan=@n,LoaiSanID=@l,ViTri=@vt,GiaMoiGio=@g,TrangThai=@tt,DangHoatDong=@a WHERE SanID=@id",pars.ToArray());}
+            if(_id==null) Db.Execute("INSERT INTO SanTheThao(MaSan,TenSan,LoaiSanID,ViTri,GiaMoiGio,TrangThai,DangHoatDong,MoTa) VALUES(@c,@n,@l,@vt,@g,@tt,@a,@d)",pars.ToArray());
+            else{pars.Add(new SqlParameter("@id",_id.Value));Db.Execute("UPDATE SanTheThao SET MaSan=@c,TenSan=@n,LoaiSanID=@l,ViTri=@vt,GiaMoiGio=@g,TrangThai=@tt,DangHoatDong=@a,MoTa=@d WHERE SanID=@id",pars.ToArray());}
             LoadData();Toast.Success("Đã lưu sân.");
         }catch(Exception ex){UiMsg.Error(ex.Message,"Lưu sân");}
     }
     private void Delete(){
+        if(_readOnly){UiMsg.Warn("Chế độ chỉ xem.");return;}
         if(_id==null){UiMsg.Warn("Chọn sân cần xóa.");return;}
         if(UiMsg.Ask("Xóa sân này?","Xác nhận",danger:true)!=DialogResult.Yes)return;
         try{Db.Execute("DELETE FROM SanTheThao WHERE SanID=@id",new SqlParameter("@id",_id.Value));Clear();LoadData();Toast.Success("Đã xóa sân.");}

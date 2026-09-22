@@ -16,6 +16,8 @@ public partial class FrmVouchers:Form
         AppTheme.StylePrimary(btnSave);
         AppTheme.StyleDanger(btnDelete);
         AppTheme.StyleSecondary(btnAssign);
+        cboType.Items.AddRange(new object[]{"Phần trăm","Số tiền"});
+        cboType.SelectedIndex=0;
         grid.SelectionChanged+=(_,__)=>Bind();
         txtSearch.TextChanged+=(_,__)=>LoadData();
         btnRefresh.Click+=(_,__)=>LoadData();
@@ -39,11 +41,10 @@ public partial class FrmVouchers:Form
         txtName.Text=Convert.ToString(r["Tên voucher"]) ?? "";
         cboType.SelectedItem= (Convert.ToString(r["Loại"]) ?? "")=="Percent" ? "Phần trăm" : "Số tiền";
         if(cboType.SelectedIndex<0) cboType.SelectedIndex=0;
-        if(r["Giá trị"]!=DBNull.Value) numValue.Value=Math.Min(numValue.Maximum, Convert.ToDecimal(r["Giá trị"]));
-        if(r["ĐH tối thiểu"]!=DBNull.Value) numMin.Value=Math.Min(numMin.Maximum, Convert.ToDecimal(r["ĐH tối thiểu"]));
-        if(r["Giảm tối đa"]!=DBNull.Value && r["Giảm tối đa"]!=null) numMax.Value=Math.Min(numMax.Maximum, Convert.ToDecimal(r["Giảm tối đa"]));
-        else numMax.Value=0;
-        if(r["Số lượng"]!=DBNull.Value) numQty.Value=Math.Min(numQty.Maximum, Convert.ToDecimal(r["Số lượng"]));
+        txtValue.Text= r["Giá trị"]==DBNull.Value ? "" : Convert.ToDecimal(r["Giá trị"]).ToString("0.##");
+        txtMin.Text= r["ĐH tối thiểu"]==DBNull.Value ? "" : Convert.ToDecimal(r["ĐH tối thiểu"]).ToString("0.##");
+        txtMax.Text= r["Giảm tối đa"]==DBNull.Value ? "" : Convert.ToDecimal(r["Giảm tối đa"]).ToString("0.##");
+        txtQty.Text= r["Số lượng"]==DBNull.Value ? "" : Convert.ToInt32(r["Số lượng"]).ToString();
         if(r["Bắt đầu"]!=DBNull.Value) dtStart.Value=Convert.ToDateTime(r["Bắt đầu"]);
         if(r["Kết thúc"]!=DBNull.Value) dtEnd.Value=Convert.ToDateTime(r["Kết thúc"]);
         chkActive.Checked= r["Hoạt động"]!=DBNull.Value && Convert.ToBoolean(r["Hoạt động"]);
@@ -51,15 +52,24 @@ public partial class FrmVouchers:Form
     private void Clear(){
         _id=null;
         txtCode.Text="VC"+DateTime.Now.ToString("HHmmss");
-        txtName.Clear();cboType.SelectedIndex=0;numValue.Value=10;numMin.Value=0;numMax.Value=0;numQty.Value=100;
+        txtName.Clear();cboType.SelectedIndex=0;txtValue.Text="10";txtMin.Text="0";txtMax.Text="";txtQty.Text="100";
         dtStart.Value=DateTime.Today;dtEnd.Value=DateTime.Today.AddMonths(1);chkActive.Checked=true;
+    }
+    private bool TryDec(string s, out decimal v){
+        return decimal.TryParse((s??"").Replace(",","").Trim(), out v);
     }
     private void Save(){
         if(string.IsNullOrWhiteSpace(txtCode.Text)||string.IsNullOrWhiteSpace(txtName.Text)){UiMsg.Warn("Nhập mã và tên voucher.");return;}
-        if(numValue.Value<=0){UiMsg.Warn("Giá trị giảm phải >0.");return;}
+        if(!TryDec(txtValue.Text, out var val) || val<=0){UiMsg.Warn("Giá trị giảm phải >0.");return;}
         var typeStr=Convert.ToString(cboType.SelectedItem) ?? "";
-        if(typeStr.Contains("Phần trăm") && numValue.Value>100){UiMsg.Warn("Giảm % không quá 100%.");return;}
+        if(typeStr.Contains("Phần trăm") && val>100){UiMsg.Warn("Giảm % không quá 100%.");return;}
         if(dtEnd.Value<=dtStart.Value){UiMsg.Warn("Ngày kết thúc phải sau ngày bắt đầu.");return;}
+        TryDec(txtMin.Text, out var minVal);
+        decimal? maxVal=null;
+        if(TryDec(txtMax.Text, out var mx) && mx>0) maxVal=mx;
+        int qty=100;
+        if(!string.IsNullOrWhiteSpace(txtQty.Text) && !int.TryParse(txtQty.Text.Trim(), out qty)) qty=0;
+        if(qty<0){UiMsg.Warn("Số lượng không âm.");return;}
         try{
             var dup=Db.Query(@"SELECT CASE WHEN EXISTS(SELECT 1 FROM PhieuGiamGia WHERE MaPhieuGiamGia=@c AND (@id IS NULL OR PhieuGiamGiaID<>@id)) THEN N'Mã voucher đã tồn tại' ELSE '' END",
                 new SqlParameter("@c",txtCode.Text.Trim()),
@@ -71,12 +81,12 @@ public partial class FrmVouchers:Form
                 new("@c",txtCode.Text.Trim()),
                 new("@n",txtName.Text.Trim()),
                 new("@l",loai),
-                new("@v",numValue.Value),
-                new("@min",numMin.Value),
-                new("@max",numMax.Value<=0 ? (object)DBNull.Value : numMax.Value),
-                new("@q",Convert.ToInt32(numQty.Value)),
-                new("@s",dtStart.Value.Date),
-                new("@e",dtEnd.Value.Date.AddDays(1).AddSeconds(-1)),
+                new("@v",val),
+                new("@min",minVal),
+                new("@max",(object?)maxVal ?? DBNull.Value),
+                new("@q",qty),
+                new("@s",dtStart.Value),
+                new("@e",dtEnd.Value),
                 new("@a",chkActive.Checked)
             };
             if(_id==null) Db.Execute("INSERT INTO PhieuGiamGia(MaPhieuGiamGia,TenPhieuGiamGia,LoaiGiamGia,GiaTriGiam,GiaTriDonHangToiThieu,GiaTriGiamToiDa,SoLuong,NgayBatDau,NgayKetThuc,DangHoatDong) VALUES(@c,@n,@l,@v,@min,@max,@q,@s,@e,@a)",pars.ToArray());

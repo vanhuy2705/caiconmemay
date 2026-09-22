@@ -10,29 +10,40 @@ public partial class FrmAdminDashboard:Form
     private readonly DashboardCard cBookings=new("Lịch đặt hôm nay","0","Đã tạo trong ngày");
     private readonly DashboardCard cPending=new("Hóa đơn chờ","0","Chưa/1 phần thanh toán");
     private readonly DashboardCard cFields=new("Sân hoạt động","0/0","Khả dụng / Tổng");
+
     public FrmAdminDashboard(){
         InitializeComponent();
         AppTheme.Upgrade(this);ResponsiveHelper.Apply(this);
         try{var sp=this.Controls.OfType<SplitContainer>().FirstOrDefault(); if(sp!=null) ResponsiveHelper.FixSplitContainer(sp);}catch{}
-        foreach(var c in new[]{cRevenue,cBookings,cPending,cFields}) cards.Controls.Add(c);
-        AppTheme.StyleGrid(gridToday);
+        lblGreeting.Text=$"☀  Xin chào, {SessionContext.FullName}!";
+        lblGreetingSub.Text="Chúc bạn một ngày làm việc hiệu quả!";
+        foreach(var c in new[]{cRevenue,cBookings,cPending,cFields}) flpCards.Controls.Add(c);
         AppTheme.StyleGrid(gridRecent);
-        AppTheme.StyleSecondary(btnRefresh);
         AppTheme.StylePrimary(btnNewBooking);
-        AppTheme.StyleSecondary(btnManageCustomers);
-        AppTheme.StyleSecondary(btnViewInvoices);
-        AppTheme.StyleSecondary(btnManageVouchers);
-        btnRefresh.Click+=(_,__)=>LoadData();
         btnNewBooking.Click+=(_,__)=>{using var f=new FrmBooking();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);LoadData();};
-        btnManageCustomers.Click+=(_,__)=>{using var f=new FrmCustomers();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);};
-        btnViewInvoices.Click+=(_,__)=>{using var f=new FrmInvoices();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);LoadData();};
-        btnManageVouchers.Click+=(_,__)=>{using var f=new FrmVouchers();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);};
+        BuildQuickActions();
         Shown+=(_,__)=>LoadData();
     }
+
+    private void BuildQuickActions(){
+        quickGrid.Controls.Clear();
+        AddQuick("Đặt sân mới",SportIcon.Booking,AppTheme.Success,()=>{using var f=new FrmBooking();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);LoadData();},0,0);
+        AddQuick("Khách hàng",SportIcon.Customer,AppTheme.Info,()=>{using var f=new FrmCustomers();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);},1,0);
+        AddQuick("Hóa đơn",SportIcon.Invoice,AppTheme.Purple,()=>{using var f=new FrmInvoices();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);LoadData();},0,1);
+        AddQuick("Voucher",SportIcon.Voucher,AppTheme.Warning,()=>{using var f=new FrmVouchers();AppTheme.ApplyToForm(f,"Admin");f.ShowDialogFx(this);},1,1);
+    }
+    private void AddQuick(string text,SportIcon icon,Color color,Action action,int col,int row){
+        var b=new RoundedButton{Dock=DockStyle.Fill,Margin=new Padding(5),Text=text,Image=SportIcons.Get(icon,18,Color.White),TextImageRelation=TextImageRelation.ImageBeforeText,BackColor=color,ForeColor=Color.White,Font=new Font("Segoe UI Semibold",8.4F,FontStyle.Bold),Radius=10,HoverColor=ControlPaint.Dark(color,.08f)};
+        b.Click+=(_,__)=>action();
+        quickGrid.Controls.Add(b,col,row);
+    }
+
     private void LoadData(){
         try{
             var today=DateTime.Today;
             var tomorrow=today.AddDays(1);
+            lblDate.Text=DateTime.Now.ToString("dddd, dd/MM/yyyy - HH:mm");
+
             var revenue=Convert.ToDecimal(Db.Scalar("SELECT ISNULL(SUM(SoTien),0) FROM ThanhToan WHERE TrangThai='Confirmed' AND NgayThanhToan>=@f AND NgayThanhToan<@t",new SqlParameter("@f",today),new SqlParameter("@t",tomorrow))??0);
             var bookings=Convert.ToInt32(Db.Scalar("SELECT COUNT(*) FROM DatSan WHERE CAST(ThoiGianBatDau AS DATE)=@d",new SqlParameter("@d",today))??0);
             var pending=Convert.ToInt32(Db.Scalar("SELECT COUNT(*) FROM HoaDon WHERE TrangThaiThanhToan<>'Paid'")??0);
@@ -45,18 +56,30 @@ public partial class FrmAdminDashboard:Form
             cPending.SetValue(pending.ToString());
             cFields.SetValue($"{Math.Max(0,totalFields-busyFields-maintenance)}/{totalFields}");
 
-            lblFieldStatus.Text=$"Bận: {busyFields} • Bảo trì: {maintenance} • Rảnh: {Math.Max(0,totalFields-busyFields-maintenance)}";
-
-            gridToday.DataSource=Db.Query(@"SELECT b.MaDatSan [Mã đơn],c.HoTen [Khách],f.TenSan [Sân],b.ThoiGianBatDau [Bắt đầu],b.ThoiGianKetThuc [Kết thúc],CASE b.TrangThai WHEN 'Pending' THEN N'Chờ' WHEN 'Confirmed' THEN N'Đã xác nhận' WHEN 'InUse' THEN N'Đang dùng' WHEN 'Completed' THEN N'Hoàn thành' WHEN 'Cancelled' THEN N'Đã hủy' ELSE b.TrangThai END [TT] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID WHERE CAST(b.ThoiGianBatDau AS DATE)=@d ORDER BY b.ThoiGianBatDau",new SqlParameter("@d",today));
+            // Timeline
+            var todayData=Db.Query(@"SELECT b.MaDatSan [Mã đơn],c.HoTen [Khách],f.TenSan [Sân],b.ThoiGianBatDau [Bắt đầu],b.ThoiGianKetThuc [Kết thúc],CASE b.TrangThai WHEN 'Pending' THEN N'Chờ' WHEN 'Confirmed' THEN N'Đã xác nhận' WHEN 'InUse' THEN N'Đang dùng' WHEN 'Completed' THEN N'Hoàn thành' WHEN 'Cancelled' THEN N'Đã hủy' ELSE b.TrangThai END [TT] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID WHERE CAST(b.ThoiGianBatDau AS DATE)=@d ORDER BY b.ThoiGianBatDau",new SqlParameter("@d",today));
+            timeline.Data=todayData;
+            timeline.Invalidate();
 
             gridRecent.DataSource=Db.Query(@"SELECT TOP 8 b.MaDatSan [Mã đơn],c.HoTen [Khách],f.TenSan [Sân],b.TongTien [Tổng],CASE b.TrangThaiThanhToan WHEN 'Unpaid' THEN N'Chưa TT' WHEN 'PartiallyPaid' THEN N'1 phần' WHEN 'Paid' THEN N'Đã TT' ELSE b.TrangThaiThanhToan END [Thanh toán],b.NgayTao [Ngày tạo] FROM DatSan b JOIN KhachHang c ON c.KhachHangID=b.KhachHangID JOIN SanTheThao f ON f.SanID=b.SanID ORDER BY b.NgayTao DESC");
 
-            var typeStats=Db.Query(@"SELECT ft.TenLoaiSan Label, COUNT(DISTINCT f.SanID) Total, COUNT(DISTINCT CASE WHEN f.TrangThai='Available' THEN f.SanID END) Avail FROM LoaiSan ft LEFT JOIN SanTheThao f ON f.LoaiSanID=ft.LoaiSanID AND f.DangHoatDong=1 GROUP BY ft.TenLoaiSan");
-            donut.Items=typeStats.Rows.Cast<System.Data.DataRow>().Select(r=>{
-                var label=Convert.ToString(r["Label"]) ?? "";
-                var total= r["Total"]==DBNull.Value ? 0 : Convert.ToInt32(r["Total"]);
-                return (label,(decimal)total);
-            }).ToList();
+            // Donut - status
+            var typeStats=Db.Query(@"SELECT ft.TenLoaiSan Label, COUNT(DISTINCT f.SanID) Total FROM LoaiSan ft LEFT JOIN SanTheThao f ON f.LoaiSanID=ft.LoaiSanID AND f.DangHoatDong=1 GROUP BY ft.TenLoaiSan");
+            // DonutStatusChart uses custom drawing - set data via property if available, else fallback
+            try{
+                var list=typeStats.Rows.Cast<System.Data.DataRow>().Select(r=>{
+                    var label=Convert.ToString(r["Label"]) ?? "";
+                    var total= r["Total"]==DBNull.Value ? 0 : Convert.ToInt32(r["Total"]);
+                    return (label,(decimal)total);
+                }).ToList();
+                // Try Items, Data, or Segments via reflection
+                var prop=donut.GetType().GetProperty("Items") ?? donut.GetType().GetProperty("Data") ?? donut.GetType().GetProperty("Segments");
+                if(prop!=null && prop.CanWrite) prop.SetValue(donut,list);
+                else{
+                    var field=donut.GetType().GetField("_items",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+                    if(field!=null) field.SetValue(donut,list);
+                }
+            }catch{}
             donut.Invalidate();
 
             var rev7=Db.Query(@"SELECT FORMAT(CAST(NgayThanhToan AS DATE),'dd/MM') Label, SUM(SoTien) Value FROM ThanhToan WHERE TrangThai='Confirmed' AND NgayThanhToan>=@f GROUP BY CAST(NgayThanhToan AS DATE) ORDER BY CAST(NgayThanhToan AS DATE)",new SqlParameter("@f",today.AddDays(-6)));

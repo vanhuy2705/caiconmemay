@@ -33,15 +33,15 @@ public partial class FrmPromotions:Form
         txtCode.Text=Convert.ToString(r["Mã KM"]) ?? "";
         txtName.Text=Convert.ToString(r["Tên KM"]) ?? "";
         txtDesc.Text=Convert.ToString(r["Mô tả"]) ?? "";
-        if(r["Phần trăm"]!=DBNull.Value) numPercent.Value=Math.Min(numPercent.Maximum, Convert.ToDecimal(r["Phần trăm"]));
+        txtPercent.Text= r["Phần trăm"]==DBNull.Value ? "" : Convert.ToDecimal(r["Phần trăm"]).ToString("0.##");
         if(r["Bắt đầu"]!=DBNull.Value) dtStart.Value=Convert.ToDateTime(r["Bắt đầu"]);
         if(r["Kết thúc"]!=DBNull.Value) dtEnd.Value=Convert.ToDateTime(r["Kết thúc"]);
         chkActive.Checked= r["Hoạt động"]!=DBNull.Value && Convert.ToBoolean(r["Hoạt động"]);
     }
-    private void Clear(){_id=null;txtCode.Text="KM"+DateTime.Now.ToString("HHmmss");txtName.Clear();txtDesc.Clear();numPercent.Value=10;dtStart.Value=DateTime.Today;dtEnd.Value=DateTime.Today.AddMonths(1);chkActive.Checked=true;}
+    private void Clear(){_id=null;txtCode.Text="KM"+DateTime.Now.ToString("HHmmss");txtName.Clear();txtDesc.Clear();txtPercent.Text="10";dtStart.Value=DateTime.Today;dtEnd.Value=DateTime.Today.AddMonths(1);chkActive.Checked=true;}
     private void Save(){
         if(string.IsNullOrWhiteSpace(txtCode.Text)||string.IsNullOrWhiteSpace(txtName.Text)){UiMsg.Warn("Nhập mã và tên khuyến mãi.");return;}
-        if(numPercent.Value<=0 || numPercent.Value>100){UiMsg.Warn("Phần trăm phải (0..100].");return;}
+        if(!decimal.TryParse(txtPercent.Text.Replace(",",".").Trim(), out var pct) || pct<=0 || pct>100){UiMsg.Warn("Phần trăm phải (0..100].");return;}
         if(dtEnd.Value<=dtStart.Value){UiMsg.Warn("Ngày kết thúc phải sau bắt đầu.");return;}
         try{
             var dup=Db.Query(@"SELECT CASE WHEN EXISTS(SELECT 1 FROM KhuyenMai WHERE MaKhuyenMai=@c AND (@id IS NULL OR KhuyenMaiID<>@id)) THEN N'Mã khuyến mãi đã tồn tại' ELSE '' END",
@@ -49,7 +49,7 @@ public partial class FrmPromotions:Form
                 new SqlParameter("@id",(object?)_id ?? DBNull.Value));
             var msg=dup.Rows.Count>0 ? (Convert.ToString(dup.Rows[0][0]) ?? "") : "";
             if(msg.Length>0){UiMsg.Warn(msg);return;}
-            var pars=new[]{new SqlParameter("@c",txtCode.Text.Trim()),new SqlParameter("@n",txtName.Text.Trim()),new SqlParameter("@d",string.IsNullOrWhiteSpace(txtDesc.Text)? (object)DBNull.Value : txtDesc.Text.Trim()),new SqlParameter("@p",numPercent.Value),new SqlParameter("@s",dtStart.Value.Date),new SqlParameter("@e",dtEnd.Value.Date.AddDays(1).AddSeconds(-1)),new SqlParameter("@a",chkActive.Checked)};
+            var pars=new[]{new SqlParameter("@c",txtCode.Text.Trim()),new SqlParameter("@n",txtName.Text.Trim()),new SqlParameter("@d",string.IsNullOrWhiteSpace(txtDesc.Text)? (object)DBNull.Value : txtDesc.Text.Trim()),new SqlParameter("@p",pct),new SqlParameter("@s",dtStart.Value.Date),new SqlParameter("@e",dtEnd.Value.Date.AddDays(1).AddSeconds(-1)),new SqlParameter("@a",chkActive.Checked)};
             if(_id==null) Db.Execute("INSERT INTO KhuyenMai(MaKhuyenMai,TenKhuyenMai,MoTa,PhanTramGiam,NgayBatDau,NgayKetThuc,DangHoatDong) VALUES(@c,@n,@d,@p,@s,@e,@a)",pars);
             else{var l=pars.ToList();l.Add(new SqlParameter("@id",_id.Value));Db.Execute("UPDATE KhuyenMai SET MaKhuyenMai=@c,TenKhuyenMai=@n,MoTa=@d,PhanTramGiam=@p,NgayBatDau=@s,NgayKetThuc=@e,DangHoatDong=@a WHERE KhuyenMaiID=@id",l.ToArray());}
             LoadData();Toast.Success("Đã lưu khuyến mãi.");
